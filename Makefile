@@ -3,10 +3,10 @@ PYTHON ?= python3
 .PHONY: install-dev install-transfer lint format typecheck test audit demo clean
 
 install-dev:
-	$(PYTHON) -m pip install -r requirements.txt -r requirements-dev.txt
+	$(PYTHON) -m pip install -e ".[dev]" --no-build-isolation
 
 install-transfer:
-	$(PYTHON) -m pip install -r requirements.txt -r requirements-transfer.txt
+	$(PYTHON) -m pip install -e ".[transfer]" --no-build-isolation
 
 lint:
 	ruff check .

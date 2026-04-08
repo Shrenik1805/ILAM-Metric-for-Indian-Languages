@@ -2,6 +2,78 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "ilam"
+version = "0.1.0"
+description = "Indian Language-Aware Metric for Indic NLP evaluation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "ILAM Research" }
+]
+keywords = [
+  "nlp",
+  "indic",
+  "hindi",
+  "marathi",
+  "kannada",
+  "evaluation",
+  "metric",
+  "machine-translation"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+  "indic-nlp-library>=0.91",
+  "sacrebleu>=2.3.0",
+  "scipy>=1.11.0",
+  "numpy>=1.24.0",
+  "pandas>=2.0.0",
+  "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+  "transformers>=4.35.0",
+  "torch>=2.0.0",
+  "sentencepiece>=0.1.99",
+]
+transfer = [
+  "transformers>=4.35.0",
+  "torch>=2.0.0",
+  "sentencepiece>=0.1.99",
+  "accelerate>=0.24.0",
+  "datasets>=2.14.0,<4.0.0",
+  "pyarrow>=12.0.0",
+  "IndicTransToolkit>=1.1.1",
+]
+finetune = [
+  "peft>=0.6.0",
+  "bitsandbytes>=0.41",
+]
+dev = [
+  "black>=24.0.0",
+  "ruff>=0.6.0",
+  "mypy>=1.10.0",
+  "pytest>=8.0.0",
+  "pip-audit>=2.7.0",
+]
+
+[project.urls]
+Repository = "https://github.com/Shrenik1805/ILAM-Metric-for-Indian-Languages"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["ilam*", "transfer*"]
+
 [tool.black]
 line-length = 100
 target-version = ["py39", "py310", "py311", "py312", "py313", "py314"]

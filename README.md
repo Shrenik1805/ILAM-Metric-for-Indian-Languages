@@ -38,6 +38,15 @@ Weights are **language-adaptive**:
 ## Installation
 
 ```bash
+# Install package in current environment
+pip install .
+
+# Editable install for development
+pip install -e .
+
+# If your environment blocks network during build, use:
+pip install -e . --no-build-isolation
+
 # Core (CPU-only, no GPU needed)
 pip install -r requirements.txt
 
@@ -53,6 +62,11 @@ pip install transformers torch sentencepiece
 
 # Full pipeline with IndicTrans2 transfer (recommended)
 pip install -r requirements-transfer.txt
+
+# Extras via package metadata
+pip install ".[dev]"
+pip install ".[gpu]"
+pip install ".[transfer]"
 ```
 
 ---
@@ -234,7 +248,7 @@ ilam/
 ├── data/                    # Datasets (gitignored)
 ├── results/                 # Generated outputs (gitignored)
 ├── run_all.py               # End-to-end pipeline runner
-├── setup.py
+├── pyproject.toml
 ├── requirements.txt
 └── README.md
 ```
