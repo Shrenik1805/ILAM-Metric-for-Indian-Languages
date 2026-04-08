@@ -18,7 +18,7 @@ To force MuRIL on a GPU machine:
 import math
 from collections import Counter
 from .script_score import normalize
-from hf_auth import apply_hf_token_env
+from .hf_auth import apply_hf_token_env
 
 _MODEL_CACHE = {}
 _TORCH_AVAILABLE = None   # cached after first check
@@ -164,7 +164,8 @@ def batch_sem_score(
     """
     Batch SemScore. GPU-safe: uses char n-gram on CPU/Mac automatically.
     """
-    assert len(hypotheses) == len(references), "Length mismatch"
+    if len(hypotheses) != len(references):
+        raise ValueError("Length mismatch: hypotheses and references must be equal length")
 
     hyps_norm = [normalize(h, lang) for h in hypotheses]
     refs_norm = [normalize(r, lang) for r in references]

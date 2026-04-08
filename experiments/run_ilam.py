@@ -147,7 +147,12 @@ def main():
     parser.add_argument("--data_dir", type=str, default=None)
     parser.add_argument("--demo", action="store_true")
     parser.add_argument("--out_dir", type=str, default="results")
-    parser.add_argument("--verbose", action="store_true", default=True)
+    parser.add_argument(
+        "--verbose",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable detailed ILAM progress logs (default: enabled).",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -158,7 +163,7 @@ def main():
     else:
         data_dir = Path(args.data_dir)
         datasets = {}
-        for fp in data_dir.glob("*.json"):
+        for fp in sorted(data_dir.glob("*.json")):
             with open(fp, encoding="utf-8") as f:
                 data = json.load(f)
             tgt = data.get("tgt_lang", fp.stem)
@@ -173,6 +178,10 @@ def main():
         all_results[tgt_lang] = results
         out_path = os.path.join(args.out_dir, f"ilam_scores_{tgt_lang}.csv")
         save_sentence_csv(results, out_path)
+
+    if not all_results:
+        print("[ILAM] No datasets found to score.")
+        return
 
     print(f"\n{'='*60}")
     print("[ILAM] Corpus-level summary")

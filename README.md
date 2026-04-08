@@ -71,7 +71,7 @@ To rotate/delete old cached HF tokens and set a new one:
 ./scripts/rotate_hf_token.sh
 ```
 
-All project code reads the token through `hf_auth.py`.
+All project code reads the token through `ilam.hf_auth`.
 
 ---
 

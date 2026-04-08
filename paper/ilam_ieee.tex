@@ -1,0 +1,155 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{xurl}
+
+\title{ILAM: An Interpretable Indian Language-Aware Metric for Reference-Based Evaluation on FLORES-200}
+
+\author{
+  \IEEEauthorblockN{Your Name(s)}
+  \IEEEauthorblockA{Your Affiliation\\
+  Email: your.email@domain}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Automatic reference-based metrics such as BLEU \cite{papineni2002bleu} remain widely used due to simplicity, speed, and reproducibility, but they can under-reward valid outputs in morphologically rich and script-complex languages. We present \emph{ILAM}, an interpretable metric designed for Indic languages that combines (i) morphology-aware overlap, (ii) semantic similarity, and (iii) script/Unicode fidelity into a single bounded score. ILAM is implemented as a lightweight Python package with clear sub-scores to enable debugging and analysis. We evaluate ILAM on FLORES-200 devtest \cite{flores200} for Hindi$\rightarrow$Marathi and Hindi$\rightarrow$Kannada using IndicTrans2 translations \cite{indictrans2}, comparing against BLEU and chrF variants \cite{popovic2015chrf}. ILAM is designed to be notebook-friendly, deterministic by default, and to degrade gracefully when optional heavy dependencies are unavailable.
+\end{abstract}
+
+\begin{IEEEkeywords}
+machine translation evaluation, Indic languages, BLEU alternatives, morphology, semantic similarity, Unicode normalization
+\end{IEEEkeywords}
+
+\section{Introduction}
+BLEU remains a global standard for machine translation (MT) evaluation \cite{papineni2002bleu}. However, languages with rich morphology and complex scripts often exhibit surface-form variability that reduces exact n-gram overlap while preserving meaning. For Indic languages, this can lead to low BLEU despite outputs that are acceptable to human readers. Similarly, Unicode normalization and script-specific rendering differences can distort string-based comparisons.
+
+This paper introduces ILAM, a reference-based metric aimed at Indic MT evaluation with two design goals:
+\begin{itemize}
+  \item \textbf{Interpretability:} a small number of linguistically motivated components with transparent behavior.
+  \item \textbf{Practicality:} a pip-installable package with reproducible scoring and sensible fallbacks for CPU-only or offline environments.
+\end{itemize}
+
+Our contributions are:
+\begin{itemize}
+  \item A simple, bounded metric decomposition for Indic evaluation into morphology, semantics, and script fidelity.
+  \item A practical Python implementation with explicit fallbacks that keep behavior deterministic on CPU-only machines.
+  \item An initial FLORES-200 devtest evaluation for Hindi$\rightarrow$Marathi and Hindi$\rightarrow$Kannada using IndicTrans2 outputs.
+\end{itemize}
+
+\section{Related Work}
+We position ILAM among classic lexical-overlap metrics such as BLEU \cite{papineni2002bleu} and chrF/chrF++ \cite{popovic2015chrf}, and embedding-based metrics that aim to capture meaning beyond surface overlap. chrF has been shown to correlate better than BLEU for morphologically rich languages due to character n-gram matching. ILAM combines these ideas while explicitly accounting for Indic script normalization and morphology.
+
+\section{Metric Design}
+ILAM decomposes evaluation into three bounded sub-scores in $[0,1]$ and computes a weighted combination:
+\begin{equation}
+\mathrm{ILAM}(h,r;\ell) = \alpha_\ell \cdot M(h,r;\ell) + \beta_\ell \cdot S(h,r;\ell) + \gamma_\ell \cdot C(h,r;\ell),
+\end{equation}
+where $h$ is hypothesis, $r$ is reference, $\ell$ is the target language, and $\alpha_\ell+\beta_\ell+\gamma_\ell=1$.
+
+\subsection{ScriptScore: Unicode and Script Fidelity}
+The ScriptScore component $C(\cdot)$ normalizes text via NFC and language-specific mapping rules for common Indic codepoint variants, optionally leveraging IndicNLP normalization when available. After normalization, it computes a character-level similarity using chrF (when available) or a pure-Python character n-gram F-score fallback. The intent is to (i) reduce spurious penalties due to equivalent Unicode sequences and (ii) penalize wrong-script or garbled outputs.
+
+\subsection{MorphScore: Morphology-Aware Overlap}
+MorphScore $M(\cdot)$ targets morphological variability. It tokenizes input (IndicNLP tokenizer if available, else whitespace), then attempts unsupervised morpheme segmentation (IndicNLP) and falls back to language-specific suffix-stripping heuristics and, ultimately, character trigram proxies. The final MorphScore is the multiset F1 overlap of morpheme units between hypothesis and reference:
+\begin{equation}
+M = \frac{2PR}{P+R},\;\; P=\frac{|H\cap R|}{|H|},\;\; R=\frac{|H\cap R|}{|R|}.
+\end{equation}
+
+\subsection{SemScore: Semantic Similarity}
+SemScore $S(\cdot)$ is computed via cosine similarity of sentence embeddings when a semantic model is enabled on compatible hardware, and otherwise uses a safe character n-gram cosine fallback. In our implementation, a multilingual Indic-focused encoder (MuRIL \cite{murril}) is used when CUDA is available; the fallback ensures the package runs deterministically on CPU-only machines.
+
+\subsection{Language-Adaptive Weights}
+Indic languages differ in morphology and orthography. ILAM ships with language-adaptive default weights (e.g., higher $\alpha$ for Marathi/Kannada due to morphology), and allows user overrides (renormalized to sum to 1).
+
+\section{Experimental Setup}
+\subsection{Dataset}
+We evaluate on FLORES-200 \texttt{devtest} \cite{flores200} for Hindi$\rightarrow$Marathi and Hindi$\rightarrow$Kannada, using language codes \texttt{hin\_Deva}, \texttt{mar\_Deva}, and \texttt{kan\_Knda}. Each experiment uses $N=200$ sentence pairs.
+
+\subsection{System Outputs}
+Hypotheses are generated using IndicTrans2 \cite{indictrans2}. A key implementation detail is the use of the official IndicTrans2 preprocessing/postprocessing pipeline (IndicTransToolkit) to avoid script corruption and to improve translation quality, particularly for Kannada.
+
+\subsection{Baselines}
+We compare ILAM against:
+\begin{itemize}
+  \item BLEU (corpus-level)
+  \item chrF and chrF++ (corpus-level)
+\end{itemize}
+
+\subsection{Implementation and Reproducibility}
+ILAM is implemented as a Python package with a stable API for single-sentence, batch, and corpus-level scoring. Hugging Face access is handled through a local token file (\texttt{ilam\_env/.hf\_token}) or environment variables, and FLORES loading uses \texttt{trust\_remote\_code=True} where required. A strict mode (\texttt{--strict\_flores}) is available to fail fast when FLORES cannot be loaded.
+
+\section{Results}
+Table~\ref{tab:baselines} reports corpus-level BLEU/chrF baselines and ILAM scores on FLORES devtest.
+
+\begin{table}[t]
+\centering
+\caption{ILAM sub-score corpus means on FLORES-200 devtest ($N=200$).}
+\label{tab:subs}
+\begin{tabular}{lrrrr}
+\toprule
+Pair & Morph & Sem & Script & ILAM \\
+\midrule
+hi$\rightarrow$mr & 0.5166 & 0.5748 & 0.4897 & 0.5316 \\
+hi$\rightarrow$kn & 0.5659 & 0.6159 & 0.5470 & 0.5796 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On FLORES devtest, ILAM yields corpus scores of 0.5316 for Hindi$\rightarrow$Marathi and 0.5796 for Hindi$\rightarrow$Kannada, while BLEU reports 13.54 and 16.31, respectively. chrF/chrF++ remain strong baselines (Table~\ref{tab:baselines}), and ILAM complements these by exposing interpretable sub-scores (Table~\ref{tab:subs}) that help distinguish morphology-driven deviations, semantic drift, and script/Unicode fidelity issues.
+
+\begin{table}[t]
+\centering
+\caption{Corpus-level scores on FLORES-200 devtest (Hindi$\rightarrow$Marathi, Hindi$\rightarrow$Kannada), $N=200$ each.}
+\label{tab:baselines}
+\begin{tabular}{lrrrr}
+\toprule
+Pair & BLEU & chrF & chrF++ & ILAM \\
+\midrule
+hi$\rightarrow$mr & 13.54 & 48.96 & 44.40 & 0.5316 \\
+hi$\rightarrow$kn & 16.31 & 54.40 & 49.37 & 0.5796 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablations (Recommended)}
+To validate scientific reasonableness, we recommend ablations where each sub-score is removed:
+\begin{itemize}
+  \item ILAM without MorphScore ($\alpha=0$)
+  \item ILAM without SemScore ($\beta=0$)
+  \item ILAM without ScriptScore ($\gamma=0$)
+\end{itemize}
+These analyses demonstrate whether each component contributes complementary signal on Indic evaluation.
+
+\section{Discussion}
+ILAM is not intended to replace BLEU universally; rather, it provides a more linguistically aligned signal for Indic languages by:
+\begin{itemize}
+  \item rewarding morphological/root overlap,
+  \item capturing semantic similarity when available,
+  \item normalizing Indic Unicode idiosyncrasies to avoid spurious penalties.
+\end{itemize}
+The decomposition into sub-scores supports error analysis (e.g., whether low ILAM arises from meaning drift vs script corruption).
+
+\section{Limitations}
+First, SemScore quality depends on model availability and hardware; the fallback is string-based and may overlap with chrF-like behavior. Second, FLORES devtest is limited in domain coverage; broader evaluation across domains and languages is needed for standardization. Third, ILAM weights are currently preset rather than learned from human judgments; future work should calibrate weights using annotated evaluation data. Finally, this paper reports FLORES-based automatic evaluation results; validating ILAM against external human annotations is required before making claims about correlation with human judgments.
+
+\section{Conclusion}
+We presented ILAM, an interpretable reference-based metric for Indic MT evaluation that combines morphology, semantics, and script fidelity. ILAM is implemented as a practical Python package and evaluated on FLORES-200 devtest for Hindi$\rightarrow$Marathi and Hindi$\rightarrow$Kannada. Future work will extend language coverage and validate ILAM against human judgments across domains.
+
+\section*{Reproducibility Checklist}
+\begin{itemize}
+  \item Set HF token: \texttt{./scripts/set\_hf\_token.sh}
+  \item Install core: \texttt{pip install -r requirements.txt}
+  \item Install transfer deps: \texttt{pip install -r requirements-transfer.txt}
+  \item Run: \texttt{ilam\_env/bin/python3 run\_all.py --translate --src\_lang hi --tgt\_langs mr kn --max\_samples 200 --strict-flores}
+\end{itemize}
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

@@ -366,7 +366,7 @@ def main():
     else:
         data_dir = Path(args.data_dir)
         datasets = {}
-        for fp in data_dir.glob("*.json"):
+        for fp in sorted(data_dir.glob("*.json")):
             with open(fp, encoding="utf-8") as f:
                 data = json.load(f)
             datasets[data.get("tgt_lang", fp.stem)] = data

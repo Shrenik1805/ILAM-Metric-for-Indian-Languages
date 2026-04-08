@@ -41,35 +41,15 @@ def step_translate(args):
         model_name="ai4bharat/indictrans2-indic-indic-1B",
         quantize=args.quantize,
     )
-    try:
-        results = translator.translate_flores200(
-            src_lang=args.src_lang,
-            tgt_langs=args.tgt_langs,
-            split="devtest",
-            max_samples=args.max_samples,
-            save_dir="data/translations",
-            allow_builtin_fallback=args.allow_builtin_fallback,
-        )
-    except RuntimeError as e:
-        # Network-restricted environments commonly fail to reach Hugging Face.
-        # Auto-retry with sample fallback to keep the pipeline runnable.
-        if (
-            not args.strict_flores
-            and not args.allow_builtin_fallback
-            and "Could not load Flores-200" in str(e)
-        ):
-            print("[run_all] Warning: Could not fetch Flores-200 from Hugging Face.")
-            print("[run_all] Retrying with built-in fallback samples (20 sentences).")
-            results = translator.translate_flores200(
-                src_lang=args.src_lang,
-                tgt_langs=args.tgt_langs,
-                split="devtest",
-                max_samples=args.max_samples,
-                save_dir="data/translations",
-                allow_builtin_fallback=True,
-            )
-        else:
-            raise
+    allow_fallback = args.allow_builtin_fallback or (not args.strict_flores)
+    results = translator.translate_flores200(
+        src_lang=args.src_lang,
+        tgt_langs=args.tgt_langs,
+        split="devtest",
+        max_samples=args.max_samples,
+        save_dir="data/translations",
+        allow_builtin_fallback=allow_fallback,
+    )
     print(f"[run_all] Translation complete. Files saved to data/translations/")
     return results
 
@@ -85,7 +65,7 @@ def step_baselines(demo: bool = True, data_dir: str = None, data_files: list = N
         results = run_demo()
     else:
         from pathlib import Path
-        files = data_files if data_files else list(Path(data_dir).glob("*.json"))
+        files = data_files if data_files else sorted(Path(data_dir).glob("*.json"))
         results = [score_file(str(f)) for f in files]
         results = [r for r in results if r]
 
@@ -110,7 +90,7 @@ def step_ilam(demo: bool = True, data_dir: str = None, data_files: list = None):
     else:
         from pathlib import Path
         datasets = {}
-        files = data_files if data_files else list(Path(data_dir).glob("*.json"))
+        files = data_files if data_files else sorted(Path(data_dir).glob("*.json"))
         for fp in files:
             with open(fp, encoding="utf-8") as f:
                 data = json.load(f)
@@ -127,7 +107,7 @@ def step_ilam(demo: bool = True, data_dir: str = None, data_files: list = None):
 
 
 def step_correlation(demo: bool = True, data_dir: str = None, data_files: list = None):
-    print_banner("STEP 4: Correlation Analysis vs Human Judgments")
+    print_banner("STEP 4: Correlation Analysis (Proxy Oracle)")
     from experiments.correlation import DEMO_DATA, analyse, build_latex_table
     import csv
 
@@ -138,7 +118,7 @@ def step_correlation(demo: bool = True, data_dir: str = None, data_files: list =
     else:
         from pathlib import Path
         datasets = {}
-        files = data_files if data_files else list(Path(data_dir).glob("*.json"))
+        files = data_files if data_files else sorted(Path(data_dir).glob("*.json"))
         for fp in files:
             with open(fp, encoding="utf-8") as f:
                 data = json.load(f)
@@ -153,6 +133,19 @@ def step_correlation(demo: bool = True, data_dir: str = None, data_files: list =
 
     latex = build_latex_table(rows)
     with open("results/correlation_table.tex", "w", encoding="utf-8") as f:
+        f.write(latex)
+
+    with open("results/correlation_report.txt", "w", encoding="utf-8") as f:
+        f.write("ILAM Correlation Report (proxy human score source)\n")
+        f.write("=" * 60 + "\n\n")
+        for row in rows:
+            f.write(
+                f"{row['language_pair']:12s} | {row['metric']:20s} | "
+                f"Pearson={row['pearson']:+.4f} | "
+                f"Spearman={row['spearman']:+.4f} | "
+                f"Kendall={row['kendall']:+.4f}\n"
+            )
+        f.write("\n\n--- LaTeX Table ---\n\n")
         f.write(latex)
 
     return rows
@@ -208,11 +201,17 @@ def main():
         help="If Flores-200 loading fails, use built-in 20-sentence sample data",
     )
     parser.add_argument(
-        "--strict_flores",
-        action="store_true",
-        help="Fail fast if Flores-200 loading fails (no automatic fallback retry)",
+        "--strict-flores",
+        dest="strict_flores",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="If true (default), fail fast if Flores-200 loading fails. "
+             "Disable with `--no-strict-flores` if you want to allow fallback behavior.",
     )
     args = parser.parse_args()
+
+    if args.strict_flores and args.allow_builtin_fallback:
+        parser.error("Conflicting flags: --strict-flores and --allow_builtin_fallback. Choose one.")
 
     os.makedirs("results", exist_ok=True)
     os.makedirs("data/translations", exist_ok=True)

@@ -17,7 +17,7 @@ format:
 	ruff check . --fix
 
 typecheck:
-	mypy ilam transfer experiments run_all.py hf_auth.py
+	mypy ilam transfer experiments run_all.py
 
 test:
 	pytest

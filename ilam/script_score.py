@@ -21,18 +21,7 @@ try:
     from sacrebleu.metrics import CHRF
     _CHRF = CHRF(char_order=6, word_order=0, beta=2)
 except Exception:
-    CHRF = None
     _CHRF = None
-
-
-# ── Language → script Unicode block ──────────────────────────────────────────
-SCRIPT_RANGES = {
-    "hi": (0x0900, 0x097F),   # Devanagari
-    "mr": (0x0900, 0x097F),   # Devanagari
-    "kn": (0x0C80, 0x0CFF),   # Kannada
-    "bn": (0x0980, 0x09FF),   # Bengali (future)
-    "te": (0x0C00, 0x0C7F),   # Telugu (future)
-}
 
 # ── Devanagari-specific normalisation patterns ────────────────────────────────
 # Map alternate encodings to canonical forms
@@ -54,6 +43,9 @@ DEVA_NORM = [
 KANNA_NORM = [
     ("\u0CB0\u0CBC", "\u0CDE"),   # ra + nukta → RRA
 ]
+
+_INDIC_NORMALIZER_FACTORY = None
+_INDIC_NORMALIZERS = {}
 
 
 def _apply_norm_map(text: str, norm_map: list) -> str:
@@ -115,12 +107,19 @@ def normalize(text: str, lang: str) -> str:
 
     # Step 3: IndicNLP normalizer (if available)
     try:
-        from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
-        factory = IndicNormalizerFactory()
+        global _INDIC_NORMALIZER_FACTORY
+        if _INDIC_NORMALIZER_FACTORY is None:
+            from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
+
+            _INDIC_NORMALIZER_FACTORY = IndicNormalizerFactory()
         # Map lang codes to IndicNLP codes
         lang_map = {"hi": "hi", "mr": "mr", "kn": "kn", "bn": "bn", "te": "te"}
-        if lang in lang_map:
-            normalizer = factory.get_normalizer(lang_map[lang])
+        norm_lang = lang_map.get(lang)
+        if norm_lang:
+            normalizer = _INDIC_NORMALIZERS.get(norm_lang)
+            if normalizer is None:
+                normalizer = _INDIC_NORMALIZER_FACTORY.get_normalizer(norm_lang)
+                _INDIC_NORMALIZERS[norm_lang] = normalizer
             text = normalizer.normalize(text)
     except Exception:
         pass  # graceful fallback if IndicNLP not available
@@ -179,5 +178,6 @@ def batch_script_score(hypotheses: list, references: list, lang: str) -> list:
     -------
     list of float
     """
-    assert len(hypotheses) == len(references), "Length mismatch"
+    if len(hypotheses) != len(references):
+        raise ValueError("Length mismatch: hypotheses and references must be equal length")
     return [script_score(h, r, lang) for h, r in zip(hypotheses, references)]

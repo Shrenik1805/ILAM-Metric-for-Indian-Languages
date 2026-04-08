@@ -29,7 +29,7 @@ Usage
 
 import json
 from pathlib import Path
-from hf_auth import apply_hf_token_env
+from ilam.hf_auth import apply_hf_token_env
 
 # ── Language code mappings ───────────────────────────────────────────────────
 INDICTRANS_LANG_MAP = {

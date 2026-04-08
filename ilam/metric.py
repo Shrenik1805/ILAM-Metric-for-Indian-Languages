@@ -31,7 +31,7 @@ Usage
 
 from .morph_score import morph_score, batch_morph_score
 from .sem_score import sem_score, batch_sem_score
-from .script_score import script_score, batch_script_score, normalize
+from .script_score import script_score, batch_script_score
 
 # ── Default language-adaptive weights ────────────────────────────────────────
 DEFAULT_WEIGHTS = {
@@ -92,6 +92,8 @@ class ILAM:
 
         # Normalise weights to sum to 1.0
         total = self.alpha + self.beta + self.gamma
+        if total <= 0:
+            raise ValueError("Invalid weights: alpha + beta + gamma must be > 0")
         self.alpha /= total
         self.beta /= total
         self.gamma /= total
@@ -155,7 +157,8 @@ class ILAM:
         -------
         list of dict, each with keys: 'ilam', 'morph', 'sem', 'script'
         """
-        assert len(hypotheses) == len(references), "Length mismatch"
+        if len(hypotheses) != len(references):
+            raise ValueError("Length mismatch: hypotheses and references must be equal length")
         n = len(hypotheses)
 
         if self.verbose:
@@ -191,6 +194,8 @@ class ILAM:
         results = self.batch_score(hypotheses, references)
         keys = ["ilam", "morph", "sem", "script"]
         n = len(results)
+        if n == 0:
+            return {k: 0.0 for k in keys}
         return {
             k: round(sum(r[k] for r in results) / n, 4)
             for k in keys

@@ -87,22 +87,6 @@ def chrf_score(hypotheses: list, references: list, word_order: int = 0) -> float
     return round((sum(scores) / max(1, len(scores))) * 100.0, 2)
 
 
-def sentence_bleu(hypothesis: str, reference: str) -> float:
-    if _HAS_SACREBLEU:
-        result = sacrebleu.sentence_bleu(hypothesis, [reference])
-        return round(result.score, 2)
-    return round(_token_f1_score(hypothesis, reference) * 100.0, 2)
-
-
-def sentence_chrf(hypothesis: str, reference: str, word_order: int = 0) -> float:
-    if _HAS_SACREBLEU:
-        metric = CHRF(word_order=word_order)
-        result = metric.sentence_score(hypothesis, [reference])
-        return round(result.score / 100.0, 4)
-    n = 6 if word_order == 0 else 4
-    return round(_char_f_score(hypothesis, reference, n=n), 4)
-
-
 def score_file(filepath: str) -> dict:
     """
     Load a JSON translation file and compute all baseline metrics.
@@ -231,7 +215,7 @@ def main():
         results = run_demo()
     else:
         data_dir = Path(args.data_dir)
-        json_files = list(data_dir.glob("*.json"))
+        json_files = sorted(data_dir.glob("*.json"))
         if not json_files:
             print(f"No JSON files found in {data_dir}")
             return

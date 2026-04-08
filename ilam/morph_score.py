@@ -25,7 +25,6 @@ Language-specific notes:
   - Hindi (hi): Moderate inflection; simpler than Marathi.
 """
 
-import re
 from collections import Counter
 from .script_score import normalize
 
@@ -34,6 +33,7 @@ MR_VIBHAKTI = [
     "ला", "ने", "चा", "ची", "चे", "त", "ात", "हून", "ून",
     "स", "शी", "ना", "नो", "ो", "ांना", "ांचा", "ांची", "ांचे",
 ]
+MR_VIBHAKTI_SORTED = tuple(sorted(MR_VIBHAKTI, key=len, reverse=True))
 
 # ── Kannada common agglutinative suffixes ─────────────────────────────────────
 KN_SUFFIXES = [
@@ -41,12 +41,14 @@ KN_SUFFIXES = [
     "ತ್ತಿದ್ದ", "ತ್ತಾನೆ", "ತ್ತಾಳೆ", "ತ್ತಾರೆ", "ತ್ತೇನೆ",
     "ಇರುತ್ತಾನೆ", "ಇರುವ", "ಇರು",
 ]
+KN_SUFFIXES_SORTED = tuple(sorted(KN_SUFFIXES, key=len, reverse=True))
 
 # ── Hindi common suffixes ─────────────────────────────────────────────────────
 HI_SUFFIXES = [
     "ने", "को", "का", "की", "के", "में", "पर", "से", "तक",
     "ों", "ों को", "ओं", "ें", "ाएं",
 ]
+HI_SUFFIXES_SORTED = tuple(sorted(HI_SUFFIXES, key=len, reverse=True))
 
 
 def _indic_tokenize(text: str, lang: str) -> list:
@@ -79,15 +81,15 @@ def _suffix_strip(token: str, lang: str) -> list:
     Returns [root, suffix] if a known suffix is found, else [token].
     """
     if lang == "mr":
-        for sfx in sorted(MR_VIBHAKTI, key=len, reverse=True):
+        for sfx in MR_VIBHAKTI_SORTED:
             if token.endswith(sfx) and len(token) > len(sfx) + 1:
                 return [token[: -len(sfx)], sfx]
     elif lang == "kn":
-        for sfx in sorted(KN_SUFFIXES, key=len, reverse=True):
+        for sfx in KN_SUFFIXES_SORTED:
             if token.endswith(sfx) and len(token) > len(sfx) + 1:
                 return [token[: -len(sfx)], sfx]
     elif lang == "hi":
-        for sfx in sorted(HI_SUFFIXES, key=len, reverse=True):
+        for sfx in HI_SUFFIXES_SORTED:
             if token.endswith(sfx) and len(token) > len(sfx) + 1:
                 return [token[: -len(sfx)], sfx]
     return [token]
@@ -178,5 +180,6 @@ def batch_morph_score(hypotheses: list, references: list, lang: str) -> list:
     -------
     list of float
     """
-    assert len(hypotheses) == len(references), "Length mismatch"
+    if len(hypotheses) != len(references):
+        raise ValueError("Length mismatch: hypotheses and references must be equal length")
     return [morph_score(h, r, lang) for h, r in zip(hypotheses, references)]
