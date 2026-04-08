@@ -1,0 +1,8 @@
+# Optional deps for IndicTrans2 translation + Flores loading
+transformers>=4.35.0
+torch>=2.0.0
+sentencepiece>=0.1.99
+accelerate>=0.24.0
+datasets>=2.14.0,<4.0.0
+pyarrow>=12.0.0
+IndicTransToolkit>=1.1.1

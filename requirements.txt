@@ -1,0 +1,29 @@
+# ILAM — Indian Language-Aware Metric
+# Core dependencies
+
+# Indic NLP
+indic-nlp-library>=0.91
+
+# Evaluation baselines
+sacrebleu>=2.3.0
+
+# Scientific computing
+scipy>=1.11.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Progress bars
+tqdm>=4.65.0
+
+# ── Optional (for SemScore with MuRIL) ────────────────────────────────────
+# Uncomment if GPU is available:
+# transformers>=4.35.0
+# torch>=2.0.0
+# sentencepiece>=0.1.99
+
+# ── Optional (for IndicTrans2 transfer pipeline) ───────────────────────────
+# Install `requirements-transfer.txt`
+
+# ── Optional (for few-shot fine-tuning) ───────────────────────────────────
+# peft>=0.6.0         # LoRA fine-tuning
+# bitsandbytes>=0.41  # 8-bit quantization

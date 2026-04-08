@@ -1,0 +1,28 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+ilam_env/
+.venv/
+venv/
+
+# Local secrets
+.env
+.env.*
+*.env
+ilam_env/.hf_token
+
+# Generated project outputs
+results/
+data/translations/
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
