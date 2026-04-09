@@ -156,10 +156,18 @@ corpus = scorer.corpus_score(hypotheses=[...], references=[...])
 ```bash
 python run_all.py --demo
 ```
+Outputs are written to `results/`.
 
 ### Full pipeline with IndicTrans2 translation (GPU required)
 ```bash
 python run_all.py --translate --src_lang hi --tgt_langs mr kn --max_samples 200
+```
+Outputs are written to `results_flores/` by default.
+
+### Score existing translations (no re-translation)
+If you already have `data/translations/*.json` (e.g., from a previous run), you can skip the translation step:
+```bash
+python run_all.py --translate --skip_translate_step
 ```
 
 ### Individual steps

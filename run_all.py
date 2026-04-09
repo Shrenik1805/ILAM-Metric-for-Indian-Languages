@@ -16,6 +16,9 @@ Usage:
 
     # Full pipeline (requires GPU + internet for model downloads)
     python run_all.py --translate --src_lang hi --tgt_langs mr kn --max_samples 200
+
+    # Score existing translation JSONs without re-running translation
+    python run_all.py --translate --skip_translate_step
 """
 
 import argparse
@@ -54,22 +57,21 @@ def step_translate(args):
     return results
 
 
-def step_baselines(demo: bool = True, data_dir: str = None, data_files: list = None):
+def step_baselines(out_dir: str, demo: bool = True, data_dir: str = None, data_files: list = None):
     print_banner("STEP 2: Baseline Metrics (BLEU, chrF, chrF++)")
     from experiments.run_baselines import run_demo, score_file
     import csv
 
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
 
     if demo or data_dir is None:
         results = run_demo()
     else:
-        from pathlib import Path
         files = data_files if data_files else sorted(Path(data_dir).glob("*.json"))
         results = [score_file(str(f)) for f in files]
         results = [r for r in results if r]
 
-    out_path = "results/baseline_scores.csv"
+    out_path = str(Path(out_dir) / "baseline_scores.csv")
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         if results:
             writer = csv.DictWriter(f, fieldnames=results[0].keys())
@@ -79,16 +81,15 @@ def step_baselines(demo: bool = True, data_dir: str = None, data_files: list = N
     return results
 
 
-def step_ilam(demo: bool = True, data_dir: str = None, data_files: list = None):
+def step_ilam(out_dir: str, demo: bool = True, data_dir: str = None, data_files: list = None):
     print_banner("STEP 3: ILAM Scoring")
     from experiments.run_ilam import DEMO_DATA, score_dataset, save_sentence_csv, compute_summary
 
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
 
     if demo or data_dir is None:
         datasets = DEMO_DATA
     else:
-        from pathlib import Path
         datasets = {}
         files = data_files if data_files else sorted(Path(data_dir).glob("*.json"))
         for fp in files:
@@ -100,23 +101,22 @@ def step_ilam(demo: bool = True, data_dir: str = None, data_files: list = None):
     for tgt_lang, data in datasets.items():
         results = score_dataset(data, verbose=True)
         all_results[tgt_lang] = results
-        save_sentence_csv(results, f"results/ilam_scores_{tgt_lang}.csv")
+        save_sentence_csv(results, str(Path(out_dir) / f"ilam_scores_{tgt_lang}.csv"))
 
     summary = compute_summary(all_results)
     return all_results, summary
 
 
-def step_correlation(demo: bool = True, data_dir: str = None, data_files: list = None):
+def step_correlation(out_dir: str, demo: bool = True, data_dir: str = None, data_files: list = None):
     print_banner("STEP 4: Correlation Analysis (Proxy Oracle)")
     from experiments.correlation import DEMO_DATA, analyse, build_latex_table
     import csv
 
-    os.makedirs("results", exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
 
     if demo or data_dir is None:
         datasets = DEMO_DATA
     else:
-        from pathlib import Path
         datasets = {}
         files = data_files if data_files else sorted(Path(data_dir).glob("*.json"))
         for fp in files:
@@ -126,16 +126,16 @@ def step_correlation(demo: bool = True, data_dir: str = None, data_files: list =
 
     rows = analyse(datasets)
 
-    with open("results/correlation_table.csv", "w", newline="", encoding="utf-8") as f:
+    with open(str(Path(out_dir) / "correlation_table.csv"), "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
 
     latex = build_latex_table(rows)
-    with open("results/correlation_table.tex", "w", encoding="utf-8") as f:
+    with open(str(Path(out_dir) / "correlation_table.tex"), "w", encoding="utf-8") as f:
         f.write(latex)
 
-    with open("results/correlation_report.txt", "w", encoding="utf-8") as f:
+    with open(str(Path(out_dir) / "correlation_report.txt"), "w", encoding="utf-8") as f:
         f.write("ILAM Correlation Report (proxy human score source)\n")
         f.write("=" * 60 + "\n\n")
         for row in rows:
@@ -151,7 +151,7 @@ def step_correlation(demo: bool = True, data_dir: str = None, data_files: list =
     return rows
 
 
-def print_final_summary(baseline_results, ilam_summary, correlation_rows):
+def print_final_summary(out_dir: str, baseline_results, ilam_summary, correlation_rows):
     print_banner("FINAL SUMMARY")
 
     print("\n── Baseline Metrics ──────────────────────────────────────────")
@@ -163,11 +163,12 @@ def print_final_summary(baseline_results, ilam_summary, correlation_rows):
 
     print("\n── ILAM Corpus Scores ────────────────────────────────────────")
     for r in ilam_summary:
+        unicode_part = f" | Unicode={r['unicode']:.4f}" if "unicode" in r else ""
         print(f"  →{r['tgt_lang']:5s} | "
               f"ILAM={r['ilam']:.4f} | "
               f"Morph={r['morph']:.4f} | "
               f"Sem={r['sem']:.4f} | "
-              f"Script={r['script']:.4f}")
+              f"Script={r['script']:.4f}{unicode_part}")
 
     print("\n── Correlation with Human Judgments (Pearson) ────────────────")
     for lang in sorted(set(r["tgt_lang"] for r in correlation_rows)):
@@ -179,7 +180,7 @@ def print_final_summary(baseline_results, ilam_summary, correlation_rows):
                   f"Spearman={r['spearman']:+.4f}{flag}")
 
     print("\n── Output Files ──────────────────────────────────────────────")
-    for f in sorted(Path("results").glob("*")):
+    for f in sorted(Path(out_dir).glob("*")):
         print(f"  {f}")
     print()
 
@@ -190,6 +191,18 @@ def main():
                         help="Run with built-in sample data (no GPU needed)")
     parser.add_argument("--translate", action="store_true",
                         help="Run IndicTrans2 translation step (requires GPU)")
+    parser.add_argument(
+        "--skip_translate_step",
+        action="store_true",
+        help="When --translate is set, skip the translation step and score existing JSONs in data/translations.",
+    )
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        default=None,
+        help="Output directory for result files. Defaults: 'results' for demo, "
+             "'results_flores' when --translate is used.",
+    )
     parser.add_argument("--src_lang", type=str, default="hi")
     parser.add_argument("--tgt_langs", nargs="+", default=["mr", "kn"])
     parser.add_argument("--max_samples", type=int, default=200)
@@ -213,10 +226,11 @@ def main():
     if args.strict_flores and args.allow_builtin_fallback:
         parser.error("Conflicting flags: --strict-flores and --allow_builtin_fallback. Choose one.")
 
-    os.makedirs("results", exist_ok=True)
     os.makedirs("data/translations", exist_ok=True)
 
     demo = args.demo or not args.translate
+    out_dir = args.out_dir or ("results" if demo else "results_flores")
+    os.makedirs(out_dir, exist_ok=True)
     data_dir = "data/translations" if args.translate else None
     selected_files = None
 
@@ -227,20 +241,20 @@ def main():
         ]
 
     # Step 1: Translation (optional)
-    if args.translate:
+    if args.translate and not args.skip_translate_step:
         step_translate(args)
 
     # Step 2: Baselines
-    baseline_results = step_baselines(demo=demo, data_dir=data_dir, data_files=selected_files)
+    baseline_results = step_baselines(out_dir=out_dir, demo=demo, data_dir=data_dir, data_files=selected_files)
 
     # Step 3: ILAM
-    ilam_results, ilam_summary = step_ilam(demo=demo, data_dir=data_dir, data_files=selected_files)
+    ilam_results, ilam_summary = step_ilam(out_dir=out_dir, demo=demo, data_dir=data_dir, data_files=selected_files)
 
     # Step 4: Correlation
-    correlation_rows = step_correlation(demo=demo, data_dir=data_dir, data_files=selected_files)
+    correlation_rows = step_correlation(out_dir=out_dir, demo=demo, data_dir=data_dir, data_files=selected_files)
 
     # Final summary
-    print_final_summary(baseline_results, ilam_summary, correlation_rows)
+    print_final_summary(out_dir, baseline_results, ilam_summary, correlation_rows)
 
 
 if __name__ == "__main__":

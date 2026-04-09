@@ -114,7 +114,7 @@ def score_dataset(data: dict, verbose: bool = True) -> list:
 def save_sentence_csv(results: list, out_path: str):
     """Save sentence-level results to CSV."""
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-    fields = ["idx", "src_lang", "tgt_lang", "ilam", "morph", "sem", "script",
+    fields = ["idx", "src_lang", "tgt_lang", "ilam", "morph", "sem", "script", "unicode",
               "hypothesis", "reference"]
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
@@ -130,14 +130,14 @@ def compute_summary(all_results: dict) -> list:
     for tgt_lang, results in all_results.items():
         n = len(results)
         avg = {k: round(sum(r[k] for r in results) / n, 4)
-               for k in ["ilam", "morph", "sem", "script"]}
+               for k in ["ilam", "morph", "sem", "script", "unicode"]}
         avg["tgt_lang"] = tgt_lang
         avg["n_sentences"] = n
         summary.append(avg)
         print(
             f"[ILAM Summary] {results[0]['src_lang']}→{tgt_lang} | "
             f"ILAM={avg['ilam']} | MorphScore={avg['morph']} | "
-            f"SemScore={avg['sem']} | ScriptScore={avg['script']}"
+            f"SemScore={avg['sem']} | ScriptScore={avg['script']} | Unicode={avg['unicode']}"
         )
     return summary
 
@@ -190,7 +190,7 @@ def main():
 
     summary_path = os.path.join(args.out_dir, "ilam_summary.csv")
     with open(summary_path, "w", newline="", encoding="utf-8") as f:
-        fields = ["tgt_lang", "n_sentences", "ilam", "morph", "sem", "script"]
+        fields = ["tgt_lang", "n_sentences", "ilam", "morph", "sem", "script", "unicode"]
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(summary)

@@ -47,6 +47,13 @@ KANNA_NORM = [
 _INDIC_NORMALIZER_FACTORY = None
 _INDIC_NORMALIZERS = {}
 
+_SCRIPT_BLOCKS = {
+    # Inclusive Unicode block ranges for primary scripts.
+    "hi": (0x0900, 0x097F),  # Devanagari
+    "mr": (0x0900, 0x097F),  # Devanagari
+    "kn": (0x0C80, 0x0CFF),  # Kannada
+}
+
 
 def _apply_norm_map(text: str, norm_map: list) -> str:
     for src, tgt in norm_map:
@@ -129,6 +136,52 @@ def normalize(text: str, lang: str) -> str:
     return text
 
 
+def _script_ratio(text: str, lang: str) -> float:
+    """
+    Ratio of letter/mark characters that fall inside the expected script block.
+    Punctuation, digits, and whitespace are ignored.
+    """
+    block = _SCRIPT_BLOCKS.get(lang)
+    if not block:
+        return 0.0
+    lo, hi = block
+
+    total = 0
+    in_block = 0
+    for ch in text:
+        cat = unicodedata.category(ch)
+        if not (cat.startswith("L") or cat.startswith("M")):
+            continue
+        total += 1
+        cp = ord(ch)
+        if lo <= cp <= hi:
+            in_block += 1
+    if total == 0:
+        return 0.0
+    return in_block / total
+
+
+def unicode_fidelity(hypothesis: str, reference: str, lang: str) -> float:
+    """
+    Unicode-only script fidelity score in [0,1].
+
+    This is intentionally NOT a similarity metric. It checks whether the
+    hypothesis and reference predominantly use the expected Unicode script block
+    (after normalization).
+    """
+    hyp_norm = normalize(hypothesis, lang)
+    ref_norm = normalize(reference, lang)
+    if not hyp_norm.strip() or not ref_norm.strip():
+        return 0.0
+
+    rh = _script_ratio(hyp_norm, lang)
+    rr = _script_ratio(ref_norm, lang)
+    if rh + rr == 0:
+        return 0.0
+    score = (2.0 * rh * rr) / (rh + rr)
+    return round(max(0.0, min(1.0, score)), 4)
+
+
 def script_score(hypothesis: str, reference: str, lang: str) -> float:
     """
     Compute ScriptScore between hypothesis and reference.
@@ -181,3 +234,10 @@ def batch_script_score(hypotheses: list, references: list, lang: str) -> list:
     if len(hypotheses) != len(references):
         raise ValueError("Length mismatch: hypotheses and references must be equal length")
     return [script_score(h, r, lang) for h, r in zip(hypotheses, references)]
+
+
+def batch_unicode_fidelity(hypotheses: list, references: list, lang: str) -> list:
+    """Batch unicode_fidelity in a stable, pure-Python way."""
+    if len(hypotheses) != len(references):
+        raise ValueError("Length mismatch: hypotheses and references must be equal length")
+    return [unicode_fidelity(h, r, lang) for h, r in zip(hypotheses, references)]

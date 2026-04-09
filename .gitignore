@@ -20,6 +20,7 @@ ilam_env/.hf_token
 
 # Generated project outputs
 results/
+results_flores/
 data/translations/
 
 # OS/editor noise

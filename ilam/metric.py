@@ -31,7 +31,7 @@ Usage
 
 from .morph_score import morph_score, batch_morph_score
 from .sem_score import sem_score, batch_sem_score
-from .script_score import script_score, batch_script_score
+from .script_score import script_score, batch_script_score, unicode_fidelity, batch_unicode_fidelity
 
 # ── Default language-adaptive weights ────────────────────────────────────────
 DEFAULT_WEIGHTS = {
@@ -120,6 +120,7 @@ class ILAM:
         ms = morph_score(hypothesis, reference, self.lang)
         ss = sem_score(hypothesis, reference, self.lang, self.sem_model)
         sc = script_score(hypothesis, reference, self.lang)
+        uc = unicode_fidelity(hypothesis, reference, self.lang)
 
         composite = round(
             self.alpha * ms + self.beta * ss + self.gamma * sc, 4
@@ -130,6 +131,7 @@ class ILAM:
             "morph": ms,
             "sem": ss,
             "script": sc,
+            "unicode": uc,
         }
 
     def score_value(self, hypothesis: str, reference: str) -> float:
@@ -170,11 +172,12 @@ class ILAM:
             hypotheses, references, self.lang, self.sem_model, batch_size
         )
         script_scores = batch_script_score(hypotheses, references, self.lang)
+        unicode_scores = batch_unicode_fidelity(hypotheses, references, self.lang)
 
         results = []
-        for ms, ss, sc in zip(morph_scores, sem_scores, script_scores):
+        for ms, ss, sc, uc in zip(morph_scores, sem_scores, script_scores, unicode_scores):
             composite = round(self.alpha * ms + self.beta * ss + self.gamma * sc, 4)
-            results.append({"ilam": composite, "morph": ms, "sem": ss, "script": sc})
+            results.append({"ilam": composite, "morph": ms, "sem": ss, "script": sc, "unicode": uc})
 
         if self.verbose:
             avg = sum(r["ilam"] for r in results) / n
@@ -192,7 +195,7 @@ class ILAM:
             Each value is the mean over the corpus.
         """
         results = self.batch_score(hypotheses, references)
-        keys = ["ilam", "morph", "sem", "script"]
+        keys = ["ilam", "morph", "sem", "script", "unicode"]
         n = len(results)
         if n == 0:
             return {k: 0.0 for k in keys}
